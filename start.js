@@ -3,6 +3,7 @@ var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 var cors = require('cors');
 var http = require('http');
+const path = require('path')
 var request = require('request');
 var moment = require('moment');
 
@@ -13,9 +14,13 @@ var InvasionHistory = require('./log-history');
 
 var app = express();
 
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
-
 app.use(bodyParser.json());
+
+app.set('views', path.join(__dirname, 'views'))
+app.set('view engine', 'ejs')
+app.get('/', (req, res) => res.render('pages/index'))
 
 mongoose.connect('mongodb://ttcc-admin:aquilina123@ds239071.mlab.com:39071/ttcc-invasions-logs', { useNewUrlParser: true }, err=>{
     if(!err){
