@@ -2,7 +2,7 @@
   "name": "ttcc-helper",
   "version": "1.0.0",
   "description": "TTCC: Invasion Tracker",
-  "main": "ttcc-helper.js",
+  "main": "start.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
