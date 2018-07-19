@@ -109,6 +109,7 @@ LoggerSchema.post('save', function(next){
         {
             var badType = getTypeFromCog(this.cogs_attacking);
             // console.log(this.cogs_attacking + ' of type ' + badType );
+            
             var badCogIndex = bots[badType].indexOf(this.cogs_attacking);
             this.cogs_attacking = bots[swaps[badType]][badCogIndex];
         }
