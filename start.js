@@ -11,6 +11,8 @@ var moment = require('moment');
 
 var InvasionLog = require('./log-model');
 var InvasionHistory = require('./log-history');
+var Toon = require('./toon');
+var Group = require('./group');
 
 var app = express();
 
@@ -31,8 +33,252 @@ mongoose.connect('mongodb://ttcc-admin:aquilina123@ds239071.mlab.com:39071/ttcc-
     }
 });
 
+app.get('/toon', function(req, res){
+    var toonData = req.query;
+    if(toonData && toonData.toon)
+    {
+        Toon.findById(toonData.toon, function(err, toon){
+            if(err)
+                res.status(400).send('Error getting Toon.');
+            else
+            {
+                if(toon)
+                    res.status(200).send(toon);
+                else
+                    res.status(400).send('Error finding Toon.');
+            }
+        })
+    }
+});
+
+app.post('/toon/create', function(req, res){
+    var toonData = req.body;
+    if(toonData && typeof toonData.laff == 'number' && typeof toonData.name == 'string')
+    {
+        var newToon = new Toon(toonData);
+        newToon.save(function(err){
+            if(err)
+                res.status(400).send('Error creating Toon.');
+            else
+                res.status(200).send(newToon);
+        });
+    }
+});
+
+app.post('/toon/edit', function(req, res){
+    var toonData = req.body;
+    var queryData = {};
+    if(typeof toonData.laff == 'number')//typeof toonData.name == 'string')
+        queryData.laff = toonData.laff;
+
+    if(typeof toonData.species == "string")
+        queryData.species = toonData.species;
+
+    if(typeof toonData.color == "string")
+        queryData.color = toonData.color;
+
+    if(Object.keys(queryData).length > 1 && toonData.id)
+    {
+        Toon.findByIdAndUpdate(toonData.id, queryData, { new: true }, function(err, updatedToon){
+            if(err)
+                res.status(400).send('Error editing Toon.');
+            else
+            {
+                if(updatedToon)
+                    res.status(400).send(updatedToon);
+                else
+                    res.status(400).send('Error finding Toon.');
+            }
+        });
+    }
+    else
+        res.status(400).send('Invalid Request');
+});
+
+app.get('/groups', function(req, res){
+    Group.find().populate('host').populate('toons').exec(function(err, groups){
+        if(err)
+            res.status(400).send('Error getting Groups.');
+        else
+            res.status(200).send(groups);
+    });
+});
+
+app.post('/group/delete', function(req, res){
+    var groupData = req.body;
+    if(groupData && groupData.group)
+    {
+        Group.findByIdAndRemove(groupData.group, function(err, deletedGroup){
+            if(err)
+                res.status(400).send('Error getting Group.');
+            else
+                res.status(200).send('Group Deleted');
+        });
+    }
+    else
+        res.status(400).send('Invalid Request');
+});
+
+app.post('/group/create', function(req, res){
+    var groupData = req.body;
+    if(groupData && typeof groupData.activity == 'string' && typeof groupData.district == 'string' && groupData.host)
+    {
+        Toon.findById(groupData.host, function(err, toon){
+            if(err)
+                res.status(400).send('Error getting Toon.');
+            else
+            {
+                if(toon)
+                {
+                    Group.find({ $or: [ { host: toon._id }, { toons: { $elemMatch: { $eq: toon._id } } }] }, function(err, existingGroup){
+                        if(err)
+                            res.status(400).send('Error scanning Groups.');
+                        else
+                        {
+                            if(existingGroup.length)
+                                res.status(400).send('Error creating another Group.');
+                            else
+                            {
+                                groupData.toons = [];
+                                if(typeof groupData.size == 'number')
+                                {
+                                    groupData.size = Math.min(groupData.activity === "Boss(HQ)" ? 7 : 3, groupData.size);
+                                    for(var i =0; i < groupData.size; i++)
+                                    {
+                                        groupData.toons.push(toon._id);
+                                    }
+                                    groupData.size = undefined;
+                                }
+                                var newGroup = new Group(groupData);
+                                newGroup.save(function(err){
+                                    if(err)
+                                    {
+                                        console.log(err);
+                                        res.status(400).send('Error creating Group.');
+                                    }
+                                    else
+                                        res.status(200).send(newGroup._id);
+                                });
+                            }
+                        }
+                    });
+                }
+                else
+                    res.status(400).send('Error finding Toon.');
+            }
+        });        
+    }
+    else
+        res.status(400).send('Invalid Request');
+});
+
+app.post('/group/join', function(req, res){
+    var groupData = req.body;
+    if(groupData && groupData.toon && groupData.group)
+    {
+        Toon.findById(groupData.toon, function(err, toon){
+            if(err)
+                res.status(400).send('Error getting Toon.');
+            else
+            {
+                if(toon)
+                {
+                    Group.find({ $and: [ {$or: [ { host: toon._id }, { toons: { $elemMatch: { $eq: toon._id } } }] }, {_id: { $not: { $eq: groupData.group } } } ] }, function(err, existingGroup){
+                        if(err)
+                            res.status(400).send('Error scanning Groups.');
+                        else
+                        {
+                            if(existingGroup.length)
+                                res.status(400).send('Error joining Group.');
+                            else
+                            {
+                                Group.findById(groupData.group, function(err, foundGroup){
+                                    if(err)
+                                        res.status(400).send('Error getting Group.');
+                                    else
+                                    {
+                                        if(foundGroup)
+                                        {
+                                            if((foundGroup.activity != 'Boss(HQ)' && foundGroup.toons.length < 3) || (foundGroup.activity == 'Boss(HQ)' && foundGroup.toons.length < 7))
+                                            {
+                                                foundGroup.update({ $push: { toons: toon._id } }, function(err){
+                                                    if(err)
+                                                        res.status(400).send('Error updating Group.');
+                                                    else
+                                                        res.status(200).send('Joined Group');
+                                                });
+                                            }
+                                            else
+                                                res.status(400).send('Error joining full Group.');
+                                        }
+                                        else
+                                            res.status(400).send('Error finding Group.');
+                                    }
+                                });
+                            }
+                        }
+                    });                    
+                }
+                else
+                    res.status(400).send('Error finding Toon.');
+            }
+        })
+    }
+    else
+        res.status(400).send('Invalid Request');
+});
+
+//issues, hosts leaving group = hosts should disband
+app.post('/group/leave', function(req, res){
+    var groupData = req.body;
+    if(groupData && groupData.toon && groupData.group)
+    {
+        Toon.findById(groupData.toon, function(err, toon){
+            if(err)
+                res.status(400).send('Error getting Toon.');
+            else
+            {
+                if(toon)
+                {
+                    Group.findByIdAndUpdate(groupData.group, { $pull: { toons: toon._id } }, { new: true }, function(err, editedGroup){
+                        if(err)
+                            res.status(400).send('Error getting Group.');
+                        else
+                        {
+                            if(editedGroup)
+                            {
+                                if(String(editedGroup.host) == String(toon._id))
+                                {
+                                    Group.findByIdAndRemove(groupData.group, function(err, deletedGroup){
+                                        if(err)
+                                            res.status(400).send('Error getting Group.');
+                                        else
+                                            res.status(200).send('Group has been disbanded.');
+                                    });
+                                    return;
+                                }
+                                else
+                                    res.status(200).send('Left Group');
+                            }
+                            else
+                                res.status(400).send('Error finding Group.');
+                        }
+                    });
+                    
+                }
+                else
+                    res.status(400).send('Error finding Toon.');
+            }
+        })
+    }
+    else
+        res.status(400).send('Invalid Request');
+
+});
+
 app.get('/history', function(req, res){
-    InvasionHistory.find().sort({ created: -1}).limit(100).exec(function(err, histories)
+    var amount = req.query && req.query.amount || 100;
+    InvasionHistory.find().sort({ started: -1}).limit(amount).exec(function(err, histories)
     {
         if(err)
         {
@@ -85,6 +331,7 @@ app.get('/latest', function(req, res){
     });
 });
 
+
 var requestLoop = setInterval(function(){
     request({
         url: "https://corporateclash.net/api/v1/districts/",
@@ -96,122 +343,131 @@ var requestLoop = setInterval(function(){
         if(!error && response.statusCode == 200){
             console.log('got a response');
             var districts = JSON.parse(body);
-            InvasionLog.remove({ cogs_attacking: "None" }, function(err){
-                if(err)
-                {
-                    console.log(err);
-                }
-                for(var district in districts)
-                {
-                    let newDistrict = new InvasionLog(districts[district]);
+            for(var district in districts)
+            {
+                let newDistrict = new InvasionLog(districts[district]);
 
-                    
-                    newDistrict.save(function(err){
-                        if(err)
-                        console.log(err);
+                newDistrict.save(function(err){
+                    if(err)
+                    console.log(err);
+                    else
+                    {
+                        let createdMax = moment(newDistrict.created).add(45, 'minutes').toDate();
+                        let createdMin = moment(newDistrict.created).subtract(45, 'minutes').toDate();
+                        if(newDistrict.cogs_attacking !== 'None')
+                        {
+
+                            InvasionHistory.findOne({ name: newDistrict.name, cogs_attacking: newDistrict.cogs_attacking, started: { $gte: createdMin, $lte: createdMax } }).sort({created: -1})
+                            .exec(function(err, history){
+                                if(err)
+                                {
+                                    console.log('InvasionHistory Error: Finding History');
+                                }
+                                else
+                                {
+                                    if(!history)
+                                    {
+                                        var newEntry = new InvasionHistory({ 
+                                            name: newDistrict.name,
+                                            population: newDistrict.population, 
+                                            cogs_attacking: newDistrict.cogs_attacking, 
+                                            cogs_type: newDistrict.cogs_type, 
+                                            count_total: newDistrict.count_total, 
+                                            started: newDistrict.created 
+                                        });
+                                        newEntry.save(function(err){
+                                            if(err)
+                                            {
+                                                console.log('InvasionHistory Error: Saving History');
+                                                console.log(err);
+                                            }
+                                            else
+                                                console.log('Invasion has started. (' + newDistrict.name + ' - ' + newDistrict.cogs_attacking +  ').');
+                                        });
+                                    }
+                                    else
+                                    {
+                                        console.log('Invasion in progress. (' + newDistrict.name + ' - ' + newDistrict.cogs_attacking + ')');
+                                    }
+                                }
+                            });
+                        }
                         else
                         {
-                            let createdMax = moment(newDistrict.created).add(45, 'minutes').toDate();
-                            let createdMin = moment(newDistrict.created).subtract(45, 'minutes').toDate();
-                            if(newDistrict.cogs_attacking !== 'None')
-                            {
-                                
-                                InvasionHistory.findOne({ name: newDistrict.name, cogs_attacking: newDistrict.cogs_attacking, started: { $gte: createdMin, $lte: createdMax } }).sort({created: -1})
-                                .exec(function(err, history){
-                                    if(err)
+                            InvasionHistory.findOne({ name: newDistrict.name, started: { $gte: createdMin, $lte: createdMax }, ended: null }).sort({ created: -1})
+                            .exec(function(err, history){
+                                if(err)
+                                {
+                                    console.log('InvasionHistory Error: Finding History');
+                                }
+                                else
+                                {
+                                    if(history)
                                     {
-                                        console.log('InvasionHistory Error: Finding History');
-                                    }
-                                    else
-                                    {
-                                        if(!history)
-                                        {
-                                            var newEntry = new InvasionHistory({ 
-                                                name: newDistrict.name,
-                                                population: newDistrict.population, 
-                                                cogs_attacking: newDistrict.cogs_attacking, 
-                                                cogs_type: newDistrict.cogs_type, 
-                                                count_total: newDistrict.count_total, 
-                                                started: newDistrict.created 
-                                            });
-                                            newEntry.save(function(err){
-                                                if(err)
+                                        console.log(newDistrict.name + ' - ' + newDistrict.cogs_attacking);
+                                        console.log(history);
+                                        InvasionLog.findOne({ name: newDistrict.name, cogs_attacking: history.cogs_attacking }).sort({created: -1}).exec(function(err, log){
+                                            if(err)
+                                            {
+                                                console.log('InvasionHistory Error: Finding Log');
+                                            }
+                                            else
+                                            {
+                                                if(log)
                                                 {
-                                                    console.log('InvasionHistory Error: Saving History');
-                                                    console.log(err);
-                                                }
-                                                else
-                                                    console.log('InvasionHistory Notice: Saved History (' + newDistrict.name + ').');
-                                            });
-                                        }
-                                        else
-                                        {
-                                            console.log('InvasionHistory Notice: Start already logged. (' + newDistrict.name + ' - ' + newDistrict.cogs_attacking + ')');
-                                        }
-                                    }
-                                });
-                            }
-                            else
-                            {
-                                InvasionHistory.findOne({ name: newDistrict.name, started: { $gte: createdMin, $lte: createdMax }, ended: null }).sort({ created: -1})
-                                .exec(function(err, history){
-                                    if(err)
-                                    {
-                                        console.log('InvasionHistory Error: Finding History');
-                                    }
-                                    else
-                                    {
-                                        if(history)
-                                        {
-                                            console.log(newDistrict.name + ' - ' + newDistrict.cogs_attacking);
-                                            console.log(history);
-                                            InvasionLog.findOne({ name: newDistrict.name, cogs_attacking: history.cogs_attacking }).sort({created: -1}).exec(function(err, log){
-                                                if(err)
-                                                {
-                                                    console.log('InvasionHistory Error: Finding Log');
-                                                }
-                                                else
-                                                {
-                                                    if(log)
-                                                    {
-                                                        history.ended = Date.now();
-                                                        if(history.population < log.population)
-                                                            history.population = log.population;
+                                                    history.ended = Date.now();
+                                                    if(history.population < log.population)
+                                                        history.population = log.population;
 
-                                                        history.count_defeated = log.count_defeated;                                                        
-                                                        history.save(function(err){
-                                                            if(err)
-                                                                console.log('InvasionHistory Error: Updating History');
-                                                            else
-                                                                console.log('InvasionHistory Notice: Saved History (' + log.name + ').');
-                                                        });
-                                                    }
+                                                    if(log.count_defeated + 50 >= history.count_total)
+                                                        history.countdefeated = history.count_total
                                                     else
-                                                    {
-                                                        console.log('InvasionHistory Error: Log not found.');
-                                                    }
+                                                        history.count_defeated = log.count_defeated;
+
+                                                    history.save(function(err){
+                                                        if(err)
+                                                            console.log('InvasionHistory Error: Updating History');
+                                                        else
+                                                            console.log('Invasion has ended. (' + log.name + ' - ' + log.cogs_attacking + ')');
+                                                    });
                                                 }
-                                            });
-                                        }
-                                        else
-                                        {
-                                            //console.log('InvasionHistory Notice: End already logged or no current Start.');
-                                        }
+                                                else
+                                                {
+                                                    console.log('InvasionHistory Error: Log not found.');
+                                                }
+                                            }
+                                        });
                                     }
-                                });
-                            } 
-                        }
-                    });
-
-
-                }
-            });
-        }else{
-            console.log('error: ' + response.statusCode);
+                                    else
+                                    {
+                                        //console.log('InvasionHistory Notice: End already logged or no current Start.');
+                                    }
+                                }
+                            });
+                        } 
+                    }
+                });
+            }
         }
+        else
+            console.log('error: ' + response.statusCode);
     });
-  }, 25000);
-  
-  // If you ever want to stop it...  clearInterval(requestLoop)
+  }, 15000);
+
+var purgeLoop = setInterval(function(){
+    let purgeDate = moment(Date.now()).subtract(45, 'minutes').toDate();
+    InvasionLog.remove({ created: { $lte: purgeDate } }, function(err){
+        if(err)
+        {
+            console.log(err);
+        }
+        else
+            console.log("Purged some log data.");
+    });
+
+}, 600000);
+
+//clearInterval(requestLoop);
+//clearInterval(purgeLoop);
 
 app.listen(process.env.PORT || 5000);
