@@ -54,7 +54,7 @@ var bots = {
         'Name Dropper',
         'Glad Hander',
         'Mover and Shaker',
-        'Two-Face',
+        'Two Face',
         'The Mingler',
         'Mr. Hollywood'
     ],
@@ -92,7 +92,7 @@ function getTypeFromCog(cog){
       case 'Short Change': case 'Penny Pincher': case 'Tightwad': case 'Bean Counter': case 'Number Cruncher': case 'Money Bags': case 'Loan Shark': case 'Robber Baron':
         type = 'Cashbot';
         break;
-      case 'Cold Caller': case 'Telemarketer': case 'Name Dropper': case 'Glad Hander': case 'Mover and Shaker': case 'Two-Face': case 'The Mingler': case 'Mr. Hollywood':
+      case 'Cold Caller': case 'Telemarketer': case 'Name Dropper': case 'Glad Hander': case 'Mover and Shaker': case 'Two Face': case 'The Mingler': case 'Mr. Hollywood':
         type = 'Sellbot';
         break;
       case 'Con Artist': case 'Connoisseur': case 'Swindler': case 'Middleman': case 'Toxic Manager': case 'Magnate': case 'Big Fish': case 'Head Honcho':
