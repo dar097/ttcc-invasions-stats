@@ -24,8 +24,10 @@ var io = socketio(server);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
+var connections = 0;
 io.on('connection', function(socket){
     console.log('Client connected.');
+    connections++;
     InvasionLog.findOne().exec(function(err, result){
         if(err)
             console.log('woops');
@@ -34,6 +36,7 @@ io.on('connection', function(socket){
     });
 
     socket.on('disconnect', () => {
+        connections--;
         console.log('Client disconnected');
     });
     /*
@@ -86,6 +89,11 @@ function getGroupForSocket(group_id){
         });
     }
 }
+
+app.get('/clientcount', function(req, res){
+    console.log(connections + ' client' + (connections == 1 ? '' : '') + ' connected.');
+    res.status(200).send(connections + ' client' + (connections == 1 ? '' : '') + ' connected.');
+});
 
 app.get('/toon', function(req, res){
     var toonData = req.query;
@@ -364,7 +372,7 @@ app.post('/group/leave', function(req, res){
 
 app.get('/history', function(req, res){
     var amount = req.query && req.query.amount || 100;
-    InvasionHistory.find().sort({ started: -1}).limit(amount).exec(function(err, histories)
+    InvasionHistory.find().sort({ started: -1}).limit(Number(amount)).exec(function(err, histories)
     {
         if(err)
         {
