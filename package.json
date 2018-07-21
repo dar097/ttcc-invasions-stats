@@ -4,7 +4,7 @@
   "description": "TTCC: Invasion Tracker",
   "main": "start.js",
   "scripts": {
-	"start": "node start.js",
+    "start": "node start.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -15,6 +15,7 @@
     "express": "^4.16.3",
     "moment": "^2.22.2",
     "mongoose": "^5.0.13",
-    "request": "^2.87.0"
+    "request": "^2.87.0",
+    "socket.io": "^2.1.1"
   }
 }

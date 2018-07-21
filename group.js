@@ -73,25 +73,43 @@ var GroupSchema = new mongoose.Schema({
     facility_type: {//Facility
         type: String,
         enum: [
-            'Short Factory',
-            'Long Factory',
-            'Any Factory',
+            'Factory-Short',
+            'Factory-Side',
+            'Factory-Long',
+            'Factory-Any',
+            'Factory-Short/Sound',
+            'Factory-Side/Sound',
+            'Factory-Long/Sound',
+            'Factory-Any/Sound',
 
-            'Coin Mint',
-            'Dollar Mint',
-            'Bullion Mint',
-            'Any Mint',
+            'Mint-Coin',
+            'Mint-Dollar',
+            'Mint-Bullion',
+            'Mint-Any',
+            'Mint-Coin/Sound',
+            'Mint-Dollar/Sound',
+            'Mint-Bullion/Sound',
+            'Mint-Any/Sound',
 
-            'DA Office A',
-            'DA Office B',
-            'DA Office C',
-            'DA Office D',
-            'DA Office Any',
+            'DA Office-A',
+            'DA Office-B',
+            'DA Office-C',
+            'DA Office-D',
+            'DA Office-Any',
+            'DA Office-A/Sound',
+            'DA Office-B/Sound',
+            'DA Office-C/Sound',
+            'DA Office-D/Sound',
+            'DA Office-Any/Sound',
 
-            'Front Three',
-            'Middle Six',
-            'Back Nine',
-            'Any Cog Golf'
+            'Cog Golf-Front Three',
+            'Cog Golf-Middle Six',
+            'Cog Golf-Back Nine',
+            'Cog Golf-Any',
+            'Cog Golf-Front Three/Sound',
+            'Cog Golf-Middle Six/Sound',
+            'Cog Golf-Back Nine/Sound',
+            'Cog Golf-Any/Sound'
         ],
         required: function() {
             return this.activity == 'Facility';
@@ -101,6 +119,7 @@ var GroupSchema = new mongoose.Schema({
         type: String,
         enum: [
             'V.P',
+            'V.P - SOS Shopping',
             'C.F.O',
             'C.J',
             'C.E.O'
@@ -115,11 +134,11 @@ var GroupSchema = new mongoose.Schema({
             'Toontown Central',
             'Barnacle Boatyard',
             'Ye Olde Toontowne',
-            'Daffodil Gardens',
-            'Mezzo Melodyland',
-            'The Brrrgh',
-            'Acorn Acres',
-            'Drowsy Dreamland'
+            // 'Daffodil Gardens', //These playgrounds don't have a task boss.
+            // 'Mezzo Melodyland',
+            // 'The Brrrgh',
+            // 'Acorn Acres',
+            // 'Drowsy Dreamland'
         ],
         required: function() {
             return this.activity == 'Boss(Playground)';

@@ -6,6 +6,8 @@ var http = require('http');
 const path = require('path')
 var request = require('request');
 var moment = require('moment');
+var socketio = require('socket.io');
+
 
 //var fs = require('fs');
 
@@ -16,15 +18,50 @@ var Group = require('./group');
 
 var app = express();
 
+var server = http.createServer(app);
+var io = socketio(server);
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
+
+io.on('connection', function(socket){
+    console.log('Client connected.');
+    InvasionLog.findOne().exec(function(err, result){
+        if(err)
+            console.log('woops');
+        else
+            io.emit('district', result);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected');
+    });
+    /*
+    this.io.on('connect', (socket: any) => {
+        console.log('Connected client on port %s.', this.port);
+        socket.on('message', (m: Message) => {
+            console.log('[server](message): %s', JSON.stringify(m));
+            this.io.emit('message', m);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Client disconnected');
+        });
+    });
+    */
+});
+
 app.use(bodyParser.json());
 
 app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 app.get('/', (req, res) => res.render('pages/index'))
 
-mongoose.connect('mongodb://ttcc-admin:aquilina123@ds239071.mlab.com:39071/ttcc-invasions-logs', { useNewUrlParser: true }, err=>{
+mongoose.connect('mongodb://ttcc-admin:aquilina123@ds239071.mlab.com:39071/ttcc-invasions-logs', { 
+    useNewUrlParser: true,
+    reconnectTries: Number.MAX_VALUE,
+    reconnectInterval: 1000
+}, err=>{
     if(!err){
         console.log('Invasion Logger started.');
     }else{
@@ -32,6 +69,23 @@ mongoose.connect('mongodb://ttcc-admin:aquilina123@ds239071.mlab.com:39071/ttcc-
         console.log('Invasion Logger failed to start.');
     }
 });
+
+function getGroupForSocket(group_id){
+    if(group_id)
+    {
+        Group.findById(group_id).populate('host').populate('toons').exec(function(err, group){
+            if(err)
+                console.log('Error Emitting Group.');
+            else
+            {
+                if(group)
+                    io.emit('group', group);
+                else
+                    console.log('Error Emitting Nothing.');
+            }
+        });
+    }
+}
 
 app.get('/toon', function(req, res){
     var toonData = req.query;
@@ -104,6 +158,24 @@ app.get('/groups', function(req, res){
     });
 });
 
+app.get('/group', function(req, res){
+    var groupData = req.query;
+    if(groupData && groupData.group)
+    {
+        Group.findById(groupData.group).populate('host').populate('toons').exec(function(err, group){
+            if(err)
+                res.status(400).send('Error getting Group.');
+            else
+            {
+                if(group)
+                    res.status(200).send(group);
+                else
+                    res.status(400).send('Error finding Group.');
+            }
+        });
+    }
+});
+
 app.post('/group/delete', function(req, res){
     var groupData = req.body;
     if(groupData && groupData.group)
@@ -112,7 +184,10 @@ app.post('/group/delete', function(req, res){
             if(err)
                 res.status(400).send('Error getting Group.');
             else
+            {
+                io.emit('nomoregroup', groupData.group);
                 res.status(200).send('Group Deleted');
+            }
         });
     }
     else
@@ -157,7 +232,10 @@ app.post('/group/create', function(req, res){
                                         res.status(400).send('Error creating Group.');
                                     }
                                     else
+                                    {
+                                        getGroupForSocket(newGroup._id);
                                         res.status(200).send(newGroup._id);
+                                    }
                                 });
                             }
                         }
@@ -205,7 +283,10 @@ app.post('/group/join', function(req, res){
                                                     if(err)
                                                         res.status(400).send('Error updating Group.');
                                                     else
+                                                    {
+                                                        getGroupForSocket(groupData.group);
                                                         res.status(200).send('Joined Group');
+                                                    }
                                                 });
                                             }
                                             else
@@ -228,7 +309,6 @@ app.post('/group/join', function(req, res){
         res.status(400).send('Invalid Request');
 });
 
-//issues, hosts leaving group = hosts should disband
 app.post('/group/leave', function(req, res){
     var groupData = req.body;
     if(groupData && groupData.toon && groupData.group)
@@ -253,12 +333,18 @@ app.post('/group/leave', function(req, res){
                                         if(err)
                                             res.status(400).send('Error getting Group.');
                                         else
+                                        {
+                                            io.emit('nomoregroup', groupData.group);
                                             res.status(200).send('Group has been disbanded.');
+                                        }
                                     });
                                     return;
                                 }
                                 else
+                                {
+                                    getGroupForSocket(groupData.group);
                                     res.status(200).send('Left Group');
+                                }
                             }
                             else
                                 res.status(400).send('Error finding Group.');
@@ -331,7 +417,7 @@ app.get('/latest', function(req, res){
     });
 });
 
-
+/*
 var requestLoop = setInterval(function(){
     request({
         url: "https://corporateclash.net/api/v1/districts/",
@@ -453,10 +539,11 @@ var requestLoop = setInterval(function(){
             console.log('error: ' + response.statusCode);
     });
   }, 15000);
+*/
 
 var purgeLoop = setInterval(function(){
-    let purgeDate = moment(Date.now()).subtract(45, 'minutes').toDate();
-    InvasionLog.remove({ created: { $lte: purgeDate } }, function(err){
+    let purgeDate = moment(Date.now()).subtract(30, 'minutes').toDate();
+    InvasionLog.remove({ $or: [ { created: { $lte: purgeDate } }, { created: { $eq: null } } ] }, function(err){
         if(err)
         {
             console.log(err);
@@ -470,4 +557,4 @@ var purgeLoop = setInterval(function(){
 //clearInterval(requestLoop);
 //clearInterval(purgeLoop);
 
-app.listen(process.env.PORT || 5000);
+server.listen(process.env.PORT || 5000);
