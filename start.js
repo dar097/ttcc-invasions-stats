@@ -429,7 +429,7 @@ app.get('/latest', function(req, res){
     });
 });
 
-/*
+
 var requestLoop = setInterval(function(){
     request({
         url: "https://corporateclash.net/api/v1/districts/",
@@ -551,7 +551,7 @@ var requestLoop = setInterval(function(){
             console.log('error: ' + response.statusCode);
     });
   }, 15000);
-*/
+
 
 var purgeLoop = setInterval(function(){
     let purgeDate = moment(Date.now()).subtract(30, 'minutes').toDate();
