@@ -64,7 +64,7 @@ var GroupSchema = new mongoose.Schema({
             'Walnut Way',
             'Lullaby Lane',
             'Twilight Terrace',
-            'Pajama Place',
+            'Pajama Place'
         ],
         required: function() {
             return this.activity == 'Building';

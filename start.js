@@ -111,6 +111,8 @@ app.get('/toon', function(req, res){
             }
         })
     }
+    else
+        res.status(400).send('Invalid Request');
 });
 
 app.post('/toon/create', function(req, res){
@@ -122,9 +124,11 @@ app.post('/toon/create', function(req, res){
             if(err)
                 res.status(400).send('Error creating Toon.');
             else
-                res.status(200).send(newToon);
+                res.status(200).send(newToon._id);
         });
     }
+    else
+        res.status(400).send('Invalid Request');
 });
 
 app.post('/toon/edit', function(req, res){
@@ -139,15 +143,15 @@ app.post('/toon/edit', function(req, res){
     if(typeof toonData.color == "string")
         queryData.color = toonData.color;
 
-    if(Object.keys(queryData).length > 1 && toonData.id)
+    if(Object.keys(queryData).length > 1 && toonData._id)
     {
-        Toon.findByIdAndUpdate(toonData.id, queryData, { new: true }, function(err, updatedToon){
+        Toon.findByIdAndUpdate(toonData._id, queryData, { new: true }, function(err, updatedToon){
             if(err)
                 res.status(400).send('Error editing Toon.');
             else
             {
                 if(updatedToon)
-                    res.status(400).send(updatedToon);
+                    res.status(200).send({ message: 'Toon updated successfully.'});
                 else
                     res.status(400).send('Error finding Toon.');
             }
@@ -194,7 +198,7 @@ app.post('/group/delete', function(req, res){
             else
             {
                 io.emit('nomoregroup', groupData.group);
-                res.status(200).send('Group Deleted');
+                res.status(200).send({ message: 'Group Deleted'});
             }
         });
     }
@@ -293,7 +297,7 @@ app.post('/group/join', function(req, res){
                                                     else
                                                     {
                                                         getGroupForSocket(groupData.group);
-                                                        res.status(200).send('Joined Group');
+                                                        res.status(200).send({ message: 'Joined Group'});
                                                     }
                                                 });
                                             }
@@ -343,7 +347,7 @@ app.post('/group/leave', function(req, res){
                                         else
                                         {
                                             io.emit('nomoregroup', groupData.group);
-                                            res.status(200).send('Group has been disbanded.');
+                                            res.status(200).send({ message: 'Group has been disbanded.' });
                                         }
                                     });
                                     return;
@@ -351,7 +355,7 @@ app.post('/group/leave', function(req, res){
                                 else
                                 {
                                     getGroupForSocket(groupData.group);
-                                    res.status(200).send('Left Group');
+                                    res.status(200).send({ message: 'Left Group' });
                                 }
                             }
                             else
@@ -558,6 +562,18 @@ var purgeLoop = setInterval(function(){
         }
         else
             console.log("Purged some log data.");
+    });
+
+    Group.remove({ $or: [ { created: { $lte: purgeDate } }, { created: { $eq: null } } ] }, function(err){
+        if(err)
+        {
+            console.log(err);
+        }
+        else
+        {
+            io.emit('purge');
+            console.log("Purged some group data.");
+        }
     });
 
 }, 600000);
