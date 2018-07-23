@@ -241,6 +241,7 @@ app.post('/group/create', function(req, res){
                                     }
                                     groupData.size = undefined;
                                 }
+                                groupData.created = Date.now();
                                 var newGroup = new Group(groupData);
                                 newGroup.save(function(err){
                                     if(err)
@@ -557,7 +558,7 @@ var requestLoop = setInterval(function(){
   }, 15000);
 
 
-/*var purgeLoop = setInterval(function(){
+var purgeLoop = setInterval(function(){
     let purgeDate = moment(Date.now()).subtract(30, 'minutes').toDate();
     InvasionLog.remove({ $or: [ { created: { $lte: purgeDate } }, { created: { $eq: null } } ] }, function(err){
         if(err)
@@ -580,7 +581,7 @@ var requestLoop = setInterval(function(){
         }
     });
 
-}, 600000);*/
+}, 600000);
 
 //clearInterval(requestLoop);
 //clearInterval(purgeLoop);

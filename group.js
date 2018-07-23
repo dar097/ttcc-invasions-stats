@@ -191,11 +191,7 @@ GroupSchema.path('toons').validate(function(v) {
   });
 
 GroupSchema.post('save', function(next){
-    if(!this.created)
-    {
-       this.created = Date.now();
-        this.save();
-    }
+    this.created = Date.now();
 
     if(typeof next == 'function')
         next();
