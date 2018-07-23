@@ -28,12 +28,6 @@ var connections = 0;
 io.on('connection', function(socket){
     console.log('Client connected.');
     connections++;
-    InvasionLog.findOne().exec(function(err, result){
-        if(err)
-            console.log('woops');
-        else
-            io.emit('district', result);
-    });
 
     socket.on('disconnect', () => {
         connections--;
@@ -119,6 +113,11 @@ app.post('/toon/create', function(req, res){
     var toonData = req.body;
     if(toonData && typeof toonData.laff == 'number' && typeof toonData.name == 'string')
     {
+        if(toonData.laff < 15 || toonData.laff > 160)
+        {
+            res.status(400).send('Error creating invaild Toon.');
+            return;
+        }
         var newToon = new Toon(toonData);
         newToon.save(function(err){
             if(err)
@@ -246,7 +245,7 @@ app.post('/group/create', function(req, res){
                                     else
                                     {
                                         getGroupForSocket(newGroup._id);
-                                        res.status(200).send(newGroup._id);
+                                        res.status(200).send({ message: 'Group Created. ', id: newGroup._id });
                                     }
                                 });
                             }
@@ -279,7 +278,7 @@ app.post('/group/join', function(req, res){
                         else
                         {
                             if(existingGroup.length)
-                                res.status(400).send('Error joining Group.');
+                                res.status(400).send('Error joining Group. (You might be in another group already)');
                             else
                             {
                                 Group.findById(groupData.group, function(err, foundGroup){
@@ -503,7 +502,6 @@ var requestLoop = setInterval(function(){
                                     if(history)
                                     {
                                         console.log(newDistrict.name + ' - ' + newDistrict.cogs_attacking);
-                                        console.log(history);
                                         InvasionLog.findOne({ name: newDistrict.name, cogs_attacking: history.cogs_attacking }).sort({created: -1}).exec(function(err, log){
                                             if(err)
                                             {
@@ -518,7 +516,7 @@ var requestLoop = setInterval(function(){
                                                         history.population = log.population;
 
                                                     if(log.count_defeated + 50 >= history.count_total)
-                                                        history.countdefeated = history.count_total
+                                                        history.count_defeated = history.count_total
                                                     else
                                                         history.count_defeated = log.count_defeated;
 

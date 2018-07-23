@@ -190,4 +190,15 @@ GroupSchema.path('toons').validate(function(v) {
     return v.length < 8;
   });
 
+GroupSchema.post('save', function(next){
+    if(!this.created)
+    {
+       this.created = Date.now();
+        this.save();
+    }
+
+    if(typeof next == 'function')
+        next();
+})
+
 module.exports = mongoose.model('Group', GroupSchema);
