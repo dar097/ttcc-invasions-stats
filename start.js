@@ -28,9 +28,10 @@ var connections = 0;
 io.on('connection', function(socket){
     console.log('Client connected.');
     connections++;
+    io.emit('countchange', ++connections);
 
     socket.on('disconnect', () => {
-        connections--;
+        io.emit('countchange', --connections);
         console.log('Client disconnected');
     });
     /*
