@@ -195,7 +195,7 @@ app.get('/group', function(req, res){
 
 app.post('/group/delete', function(req, res){
     var groupData = req.body;
-    if(groupData && groupData.group)
+    if(groupData && groupData.group && groupData.adminpass && groupData.adminpass == '5b54ed0911214d001495e5e1' || groupData.adminpass == '5b5608d111214d0014971390' )
     {
         Group.findByIdAndRemove(groupData.group, function(err, deletedGroup){
             if(err)
