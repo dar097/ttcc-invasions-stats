@@ -134,7 +134,14 @@ app.post('/toon/edit', function(req, res){
     var toonData = req.body;
     var queryData = {};
     if(typeof toonData.laff == 'number')//typeof toonData.name == 'string')
+    {
+        if(toonData.laff < 15 || toonData.laff > 160)
+        {
+            res.status(400).send('Error editing Toon to invalid state.');
+            return;
+        }
         queryData.laff = toonData.laff;
+    }
 
     if(typeof toonData.species == "string")
         queryData.species = toonData.species;
