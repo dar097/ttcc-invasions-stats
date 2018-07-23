@@ -133,7 +133,7 @@ app.post('/toon/create', function(req, res){
 app.post('/toon/edit', function(req, res){
     var toonData = req.body;
     var queryData = {};
-    if(typeof toonData.laff == 'number')//typeof toonData.name == 'string')
+    if(typeof toonData.laff == 'number')
     {
         if(toonData.laff < 15 || toonData.laff > 160)
         {
