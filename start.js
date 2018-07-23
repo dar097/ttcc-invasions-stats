@@ -25,14 +25,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
 var connections = 0;
-io.on('connection', function(socket){
-    console.log('Client connected.');
+io.on('connect', function(socket){
     connections++;
-    io.emit('countchange', ++connections);
-
+    io.emit('countchange', io.engine.clientsCount);
     socket.on('disconnect', () => {
-        io.emit('countchange', --connections);
-        console.log('Client disconnected');
+        connections--;
+        io.emit('countchange', io.engine.clientsCount);
     });
     /*
     this.io.on('connect', (socket: any) => {
