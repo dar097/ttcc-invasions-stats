@@ -9,6 +9,8 @@ var moment = require('moment');
 var socketio = require('socket.io');
 
 var ipfilter = require('express-ipfilter').IpFilter;
+var IpDeniedError = require('express-ipfilter').IpDeniedError;
+
 var ips = ['45.18.29.27', ['10.0.0.0', '10.255.255.255']];
 
 //var fs = require('fs');
@@ -24,6 +26,19 @@ var server = http.createServer(app);
 var io = socketio(server);
 
 app.use(ipfilter(ips, { log : true }));
+app.use(function(err, req, res, _next) {
+    console.log('Error handler', err);
+    if(err instanceof IpDeniedError){
+        res.status(401);
+    }else{
+        res.status(err.status || 500);
+    }
+
+    res.render('error', {
+        message: 'You shall not pass',
+        error: err
+    });
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
