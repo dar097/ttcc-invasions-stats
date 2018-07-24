@@ -8,6 +8,8 @@ var request = require('request');
 var moment = require('moment');
 var socketio = require('socket.io');
 
+var ipfilter = require('express-ipfilter').IpFilter;
+var ips = ['45.18.29.27'];
 
 //var fs = require('fs');
 
@@ -21,6 +23,7 @@ var app = express();
 var server = http.createServer(app);
 var io = socketio(server);
 
+app.use(ipfilter(ips));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
