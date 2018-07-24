@@ -25,7 +25,7 @@ var app = express();
 var server = http.createServer(app);
 var io = socketio(server);
 
-app.use(ipfilter(ips, { log : true }));
+app.use(ipfilter(ips, { log : false }));
 app.use(function(err, req, res, _next) {
     if(err instanceof IpDeniedError){
         res.status(401);
