@@ -11,7 +11,7 @@ var socketio = require('socket.io');
 var ipfilter = require('express-ipfilter').IpFilter;
 var IpDeniedError = require('express-ipfilter').IpDeniedError;
 
-var ips = ['45.18.29.27', ['10.0.0.0', '10.255.255.255']];
+var ips = ['45.18.29.27'];
 
 //var fs = require('fs');
 
