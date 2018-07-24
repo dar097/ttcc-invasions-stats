@@ -9,7 +9,7 @@ var moment = require('moment');
 var socketio = require('socket.io');
 
 var ipfilter = require('express-ipfilter').IpFilter;
-var ips = ['45.18.29.27', '10.182.120.54'];
+var ips = ['45.18.29.27', ['10.0.0.0', '10.255.255.255']];
 
 //var fs = require('fs');
 
