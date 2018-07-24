@@ -23,7 +23,7 @@ var app = express();
 var server = http.createServer(app);
 var io = socketio(server);
 
-app.use(ipfilter(ips, { log : false }));
+app.use(ipfilter(ips, { log : true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
