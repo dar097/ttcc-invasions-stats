@@ -8,12 +8,14 @@ var request = require('request');
 var moment = require('moment');
 var socketio = require('socket.io');
 
-var ipfilter = require('express-ipfilter').IpFilter;
-var IpDeniedError = require('express-ipfilter').IpDeniedError;
+// var ipfilter = require('express-ipfilter').IpFilter;
+// var IpDeniedError = require('express-ipfilter').IpDeniedError;
 
-var ips = ['45.18.29.27'];
+// var ips = ['45.18.29.27'];
 
 //var fs = require('fs');
+
+var RateLimit = require('express-rate-limit');
 
 var InvasionLog = require('./log-model');
 var InvasionHistory = require('./log-history');
@@ -25,14 +27,24 @@ var app = express();
 var server = http.createServer(app);
 var io = socketio(server);
 
-app.use(ipfilter(ips, { log : false }));
-app.use(function(err, req, res, _next) {
-    if(err instanceof IpDeniedError){
-        res.status(401);
-    }else{
-        res.status(err.status || 500);
-    }
+
+app.enable('trust proxy');
+var limiter = new RateLimit({
+    windowMs: 5*60000, // 5 minutes
+    max: 50, // limit each IP to 100 requests per windowMs
+    delayAfter: 35,
+    delayMs: 1000 // disable delaying - full speed until the max limit is reached
 });
+   
+app.use(limiter);
+// app.use(ipfilter(ips, { log : false }));
+// app.use(function(err, req, res, _next) {
+//     if(err instanceof IpDeniedError){
+//         res.status(401);
+//     }else{
+//         res.status(err.status || 500);
+//     }
+// });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
@@ -188,6 +200,12 @@ app.get('/groups', function(req, res){
 });
 
 app.get('/group', function(req, res){
+    // if(req.headers && req.headers['x-forwarded-for'] && req.headers['x-forwarded-for'] == '98.234.3.1')
+    // {
+    //     res.status
+    //     return;
+    // }
+
     var groupData = req.query;
     if(groupData && groupData.group)
     {
