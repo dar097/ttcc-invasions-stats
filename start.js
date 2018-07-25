@@ -35,7 +35,9 @@ var limiter = new RateLimit({
     delayAfter: 35,
     delayMs: 1000 // disable delaying - full speed until the max limit is reached
 });
-   
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors());
 app.use(limiter);
 // app.use(ipfilter(ips, { log : false }));
 // app.use(function(err, req, res, _next) {
@@ -45,8 +47,6 @@ app.use(limiter);
 //         res.status(err.status || 500);
 //     }
 // });
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(cors());
 
 var connections = 0;
 io.on('connect', function(socket){
