@@ -25,7 +25,6 @@ var Group = require('./group');
 var app = express();
 
 var server = http.createServer(app);
-var io = socketio(server);
 
 
 app.enable('trust proxy');
@@ -47,6 +46,7 @@ app.use(limiter);
 // });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
+var io = socketio(server);
 
 var connections = 0;
 io.on('connect', function(socket){
@@ -108,8 +108,8 @@ function getGroupForSocket(group_id){
 }
 
 app.get('/clientcount', function(req, res){
-    console.log(connections + ' client' + (connections == 1 ? '' : '') + ' connected.');
-    res.status(200).send(connections + ' client' + (connections == 1 ? '' : '') + ' connected.');
+    console.log(io.engine.clientsCount + ' client' + (io.engine.clientsCount == 1 ? '' : 's') + ' connected.');
+    res.status(200).send(io.engine.clientsCount + ' client' + (io.engine.clientsCount == 1 ? '' : 's') + ' connected.');
 });
 
 app.get('/toon', function(req, res){
@@ -427,6 +427,10 @@ app.get('/history', function(req, res){
     });
 });
 
+app.get('/serverinfo', function(req, res){
+    res.status(200).send(serverInfo);
+});
+
 app.get('/latest', function(req, res){
     InvasionLog.findOne().select('created').sort({ created: -1}).exec(function(err, latestLog)
     {
@@ -442,7 +446,7 @@ app.get('/latest', function(req, res){
             {
                 var createdMax = moment(latestLog.created).add(1, 'second').toDate();
                 var createdMin = moment(latestLog.created).subtract(1, 'second').toDate();
-                InvasionLog.find({created: { $gte: createdMin, $lte: createdMax } }).exec(function(err, latestLogs){
+                InvasionLog.find({created: { $gte: createdMin, $lte: createdMax }, invasion_online: true }).exec(function(err, latestLogs){
                     if(err)
                     {
                         console.log('error from /latest');
@@ -465,6 +469,11 @@ app.get('/latest', function(req, res){
     });
 });
 
+var serverInfo = {
+    districts: 0,
+    population: 0,
+    invasions: 0
+};
 
 var requestLoop = setInterval(function(){
     request({
@@ -477,13 +486,24 @@ var requestLoop = setInterval(function(){
         if(!error && response.statusCode == 200){
             console.log('got a response');
             var districts = JSON.parse(body);
+            serverInfo = {
+                districts: 0,
+                population: 0,
+                invasions: 0
+            };
             for(var district in districts)
             {
                 let newDistrict = new InvasionLog(districts[district]);
+                if(newDistrict.online)
+                {
+                    serverInfo.districts++;
+                    serverInfo.population += newDistrict.population;
+                    serverInfo.invasions += newDistrict.cogs_attacking == 'None' ? 0 : 1;
+                }
 
                 newDistrict.save(function(err){
                     if(err)
-                    console.log(err);
+                        console.log(err);
                     else
                     {
                         let createdMax = moment(newDistrict.created).add(45, 'minutes').toDate();
@@ -516,11 +536,15 @@ var requestLoop = setInterval(function(){
                                                 console.log(err);
                                             }
                                             else
+                                            {
+                                                io.emit('invasionstart', newDistrict);
                                                 console.log('Invasion has started. (' + newDistrict.name + ' - ' + newDistrict.cogs_attacking +  ').');
+                                            }
                                         });
                                     }
                                     else
                                     {
+                                        io.emit('invasionupdate', newDistrict);
                                         console.log('Invasion in progress. (' + newDistrict.name + ' - ' + newDistrict.cogs_attacking + ')');
                                     }
                                 }
@@ -561,7 +585,10 @@ var requestLoop = setInterval(function(){
                                                         if(err)
                                                             console.log('InvasionHistory Error: Updating History');
                                                         else
+                                                        {
+                                                            io.emit('invasionend', history.name);
                                                             console.log('Invasion has ended. (' + log.name + ' - ' + log.cogs_attacking + ')');
+                                                        }
                                                     });
                                                 }
                                                 else
@@ -581,6 +608,7 @@ var requestLoop = setInterval(function(){
                     }
                 });
             }
+            io.emit('serverinfo', serverInfo);
         }
         else
             console.log('error: ' + response.statusCode);
