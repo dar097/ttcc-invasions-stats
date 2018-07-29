@@ -15,6 +15,181 @@ var socketio = require('socket.io');
 
 //var fs = require('fs');
 
+// DISCORD STUFF
+const Discord = require("discord.js");
+const myBot = new Discord.Client();
+const config = require("./config.json");
+
+var myChannels = [];
+
+myBot.on("ready", () => {
+    myBot.user.setActivity(`Handling Invasions`);
+    myBot.guilds.every(function(guild){
+        var ExistingChannel = guild.channels.find(function(channel){
+            return channel.name == 'invasions';
+        });
+        
+        if(ExistingChannel)
+            myChannels.push(ExistingChannel);        
+    });
+    console.log(`Bot has started, ${myChannels.length} invasion channel${myChannels.length == 1 ? '' : 's'} listening.`); 
+});
+
+function isVowel(c) {
+    return ['a', 'e', 'i', 'o', 'u'].indexOf(c.toLowerCase()) !== -1
+}
+
+function notifyChannels(district, state){
+    var cog_slugged = district.cogs_attacking.split(' ').join('%20');
+    let embed = new Discord.RichEmbed()
+    .setTitle("Invasion Notification")
+    .setAuthor(myBot.user.username, myBot.user.avatarURL)
+    .setColor(state == 'start' ? '#19c61c' : '#c61919')
+    .setTimestamp()
+    .setThumbnail(`https://dar097.github.io/ttcc-invasions/assets/cogs/${cog_slugged}.png`)
+    .setURL("http://cchq.live");
+
+    if(state === 'start')
+    {
+        embed.setDescription(`A${isVowel(district.cogs_attacking[0]) ? 'n' : ''} ${district.cogs_attacking} invasion has started in ${district.name}\.`);
+    }
+    else
+    {
+        embed.setDescription(`The ${district.cogs_attacking} invasion in ${district.name} has ended.`);
+    }
+    for(var i = 0; i < myChannels.length; i++)
+    {        
+        myChannels[i].send({embed}).then(function(){}, function(){ console.log(`I was unable to send a message in ${myChannels[i].id}.`); });
+    }
+}
+
+myBot.on("guildCreate", guild => {
+    // This event triggers when the bot joins a guild.
+    console.log(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
+    myBot.user.setActivity(`Handling Invasions`);
+    var ExistingChannel = guild.channels.find(function(channel){
+        return channel.name == 'invasions';
+    });
+
+    if(!ExistingChannel)
+    {
+        guild.createChannel('invasions', 'text', [], 'invasion logging').then(
+            function(newChannel){
+                myChannels.push(newChannel);
+            }, 
+            function(reason){
+                console.log(reason);
+            }
+        );
+    }
+    else
+    {
+        myChannels.push(ExistingChannel);
+    }
+});
+
+myBot.on("message", message => {
+    if(message.author.bot) return;
+    if(message.content.indexOf(config.prefix) !== 0) return;
+    var ValidChannel = myChannels.findIndex(function(channel){
+        return message.channel.id == channel.id;
+    })
+    if(ValidChannel != -1)
+    {
+        const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
+        const command = args.shift().toLowerCase();
+        if(command === 'invasions')
+        {
+            InvasionLog.findOne().select('created').sort({ created: -1}).exec(function(err, latestLog)
+            {
+                if(err)
+                {
+                    console.log('error from myBot/invasions');
+                    console.log(err);
+                } 
+                else
+                {
+                    if(latestLog && latestLog.created)
+                    {
+                        var createdMax = moment(latestLog.created).add(1, 'second').toDate();
+                        var createdMin = moment(latestLog.created).subtract(1, 'second').toDate();
+                        InvasionLog.find({created: { $gte: createdMin, $lte: createdMax }, invasion_online: true }).exec(function(err, latestLogs){
+                            if(err)
+                            {
+                                console.log('error from myBot/invasions');
+                                console.log(err);
+                            } 
+                            else
+                            {
+                                if(!latestLogs.length)
+                                {
+                                    message.channel.send(`There are currently no invasions.`).then(function(){}, function(){ console.log(`I was unable to send a message in ${message.channel.id}.`); });
+                                    return;
+                                }   
+                                
+                                var invasions = [];
+                                for(var i = 0; i < latestLogs.length; i++)
+                                {
+                                    invasions.push({
+                                        name: latestLogs[i].cogs_attacking,
+                                        value: `${latestLogs[i].name} | Progress: ${latestLogs[i].count_defeated}/${latestLogs[i].count_total} | Started ${new Date(0,0,0,0,0,1800-latestLogs[i].remaining_time).toISOString().substr(14, 2)} minutes ago`
+                                    });
+                                }
+                                var desc = latestLogs.length == 1 ? `There is currently 1 invasion.` : `There are currently ${latestLogs.length} invasions.`
+                                message.channel.send({embed: {
+                                    color: 3447003,
+                                    author: {
+                                      name: myBot.user.username,
+                                      icon_url: myBot.user.avatarURL
+                                    },
+                                    title: "Current Invasions",
+                                    url: "http://cchq.live",
+                                    description: desc,
+                                    fields: invasions,
+                                    footer: {
+                                        icon_url: 'https://dar097.github.io/ttcc-invasions/assets/logo_icon.png',
+                                        text: 'Invasions last for 30 minutes or until progress is complete.'
+                                    }
+                                  }
+                                }).then(function(){}, function(){ console.log(`I was unable to send a message in ${message.channel.id}.`); });
+                            }
+                        });
+                    }
+                    else
+                    {
+                        console.log('error from myBot/invasions');
+                        console.log(err);
+                    }
+                }
+            });
+        }
+    }
+});
+
+myBot.on("guildDelete", guild => {
+    // this event triggers when the bot is removed from a guild.
+    console.log(`I have been removed from: ${guild.name} (id: ${guild.id})`);
+    // myBot.user.setActivity(`Handling Invasions`);
+    var ExistingChannel = guild.channels.find(function(channel){
+        return channel.name == 'invasions';
+    });
+    if(ExistingChannel)
+    {
+        var channelIndex = myChannels.findIndex(function(channel){
+            return channel.id == ExistingChannel.id;
+        });
+
+        if(channelIndex != -1)
+        {
+            myChannels.splice(channelIndex, 1);
+        }
+    }
+});
+
+myBot.login(config.token);
+
+// DISCORD STUFF
+
 var RateLimit = require('express-rate-limit');
 
 var InvasionLog = require('./log-model');
@@ -55,19 +230,6 @@ io.on('connect', function(socket){
     socket.on('disconnect', () => {
         io.emit('countchange', io.engine.clientsCount);
     });
-    /*
-    this.io.on('connect', (socket: any) => {
-        console.log('Connected client on port %s.', this.port);
-        socket.on('message', (m: Message) => {
-            console.log('[server](message): %s', JSON.stringify(m));
-            this.io.emit('message', m);
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Client disconnected');
-        });
-    });
-    */
 });
 
 app.use(bodyParser.json());
@@ -105,6 +267,18 @@ function getGroupForSocket(group_id){
         });
     }
 }
+
+app.get('/mychannels', function(req, res){
+    var msg = req.query.messagesystem;
+    if(msg)
+    {
+        for(var i = 0; i < myChannels.length; i++)
+        {
+            myChannels[i].send(msg);
+        }
+    }
+    res.status(200).send(myChannels.length + ' Channels subscribed.');
+});
 
 app.get('/clientcount', function(req, res){
     console.log(io.engine.clientsCount + ' client' + (io.engine.clientsCount == 1 ? '' : 's') + ' connected.');
@@ -537,6 +711,7 @@ var requestLoop = setInterval(function(){
                                             else
                                             {
                                                 io.emit('invasionstart', newDistrict);
+                                                notifyChannels(newDistrict, 'start');
                                                 console.log('Invasion has started. (' + newDistrict.name + ' - ' + newDistrict.cogs_attacking +  ').');
                                             }
                                         });
@@ -586,6 +761,7 @@ var requestLoop = setInterval(function(){
                                                         else
                                                         {
                                                             io.emit('invasionend', history.name);
+                                                            notifyChannels(log, 'end');//or log
                                                             console.log('Invasion has ended. (' + log.name + ' - ' + log.cogs_attacking + ')');
                                                         }
                                                     });
