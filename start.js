@@ -50,12 +50,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 var io = socketio(server);
 
-var connections = 0;
 io.on('connect', function(socket){
-    connections++;
     io.emit('countchange', io.engine.clientsCount);
     socket.on('disconnect', () => {
-        connections--;
         io.emit('countchange', io.engine.clientsCount);
     });
     /*
