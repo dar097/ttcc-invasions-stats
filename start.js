@@ -34,7 +34,9 @@ var limiter = new RateLimit({
     delayAfter: 35,
     delayMs: 1000 // disable delaying - full speed until the max limit is reached
 });
-   
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors());
 app.use(limiter);
 // app.use(ipfilter(ips, { log : false }));
 // app.use(function(err, req, res, _next) {
