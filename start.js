@@ -21,6 +21,7 @@ const myBot = new Discord.Client();
 const config = require("./config.json");
 
 var myChannels = [];
+var cooldowns = {};
 
 myBot.on("ready", () => {
     myBot.user.setActivity(`Handling Invasions`);
@@ -91,78 +92,79 @@ myBot.on("guildCreate", guild => {
 myBot.on("message", message => {
     if(message.author.bot) return;
     if(message.content.indexOf(config.prefix) !== 0) return;
-    var ValidChannel = myChannels.findIndex(function(channel){
-        return message.channel.id == channel.id;
-    })
-    if(ValidChannel != -1)
+    
+    const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
+    const command = args.shift().toLowerCase();
+    if(command === 'invasions' && !cooldowns[message.guild.id])
     {
-        const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
-        const command = args.shift().toLowerCase();
-        if(command === 'invasions')
+        cooldowns[message.guild.id] = setTimeout(function(){ 
+            if(cooldowns[message.guild.id])
+                delete cooldowns[message.guild.id];
+         }, 60000);
+
+        InvasionLog.findOne().select('created').sort({ created: -1}).exec(function(err, latestLog)
         {
-            InvasionLog.findOne().select('created').sort({ created: -1}).exec(function(err, latestLog)
+            if(err)
             {
-                if(err)
+                console.log('error from myBot/invasions');
+                console.log(err);
+            } 
+            else
+            {
+                if(latestLog && latestLog.created)
                 {
-                    console.log('error from myBot/invasions');
-                    console.log(err);
-                } 
-                else
-                {
-                    if(latestLog && latestLog.created)
-                    {
-                        var createdMax = moment(latestLog.created).add(1, 'second').toDate();
-                        var createdMin = moment(latestLog.created).subtract(1, 'second').toDate();
-                        InvasionLog.find({created: { $gte: createdMin, $lte: createdMax }, invasion_online: true }).exec(function(err, latestLogs){
-                            if(err)
+                    var createdMax = moment(latestLog.created).add(1, 'second').toDate();
+                    var createdMin = moment(latestLog.created).subtract(1, 'second').toDate();
+                    InvasionLog.find({created: { $gte: createdMin, $lte: createdMax }, invasion_online: true }).exec(function(err, latestLogs){
+                        if(err)
+                        {
+                            console.log('error from myBot/invasions');
+                            console.log(err);
+                        } 
+                        else
+                        {
+                            if(!latestLogs.length)
                             {
-                                console.log('error from myBot/invasions');
-                                console.log(err);
-                            } 
-                            else
+                                message.channel.send(`There are currently no invasions.`).then(function(){}, function(){ console.log(`I was unable to send a message in ${message.channel.id}.`); });
+                                return;
+                            }   
+                            
+                            var invasions = [];
+                            for(var i = 0; i < latestLogs.length; i++)
                             {
-                                if(!latestLogs.length)
-                                {
-                                    message.channel.send(`There are currently no invasions.`).then(function(){}, function(){ console.log(`I was unable to send a message in ${message.channel.id}.`); });
-                                    return;
-                                }   
-                                
-                                var invasions = [];
-                                for(var i = 0; i < latestLogs.length; i++)
-                                {
-                                    invasions.push({
-                                        name: latestLogs[i].cogs_attacking,
-                                        value: `${latestLogs[i].name} | Progress: ${latestLogs[i].count_defeated}/${latestLogs[i].count_total} | Started ${new Date(0,0,0,0,0,1800-latestLogs[i].remaining_time).toISOString().substr(14, 2)} minutes ago`
-                                    });
-                                }
-                                var desc = latestLogs.length == 1 ? `There is currently 1 invasion.` : `There are currently ${latestLogs.length} invasions.`
-                                message.channel.send({embed: {
+                                invasions.push({
+                                    name: latestLogs[i].cogs_attacking,
+                                    value: `${latestLogs[i].name} | Progress: ${latestLogs[i].count_defeated}/${latestLogs[i].count_total} | Started ${new Date(0,0,0,0,0,1800-latestLogs[i].remaining_time).toISOString().substr(14, 2)} minutes ago`
+                                });
+                            }
+                            var desc = latestLogs.length == 1 ? `There is currently 1 invasion.` : `There are currently ${latestLogs.length} invasions.`
+                            message.channel.send({
+                                embed: {
                                     color: 3447003,
                                     author: {
-                                      name: myBot.user.username,
-                                      icon_url: myBot.user.avatarURL
+                                        name: myBot.user.username,
+                                        icon_url: myBot.user.avatarURL
                                     },
-                                    title: "Current Invasions",
+                                    title: desc,
                                     url: "http://cchq.live",
-                                    description: desc,
+                                    description: `This command may only be triggered every 60 seconds.`,
                                     fields: invasions,
                                     footer: {
                                         icon_url: 'https://dar097.github.io/ttcc-invasions/assets/logo_icon.png',
                                         text: 'Invasions last for 30 minutes or until progress is complete.'
                                     }
-                                  }
-                                }).then(function(){}, function(){ console.log(`I was unable to send a message in ${message.channel.id}.`); });
-                            }
-                        });
-                    }
-                    else
-                    {
-                        console.log('error from myBot/invasions');
-                        console.log(err);
-                    }
+                                }
+                            }).then(function(){}, function(){ console.log(`I was unable to send a message in ${message.channel.id}.`); });
+                        }
+                    });
                 }
-            });
-        }
+                else
+                {
+                    console.log('error from myBot/invasions');
+                    console.log(err);
+                }
+            }
+        });
     }
 });
 
